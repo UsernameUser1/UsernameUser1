@@ -15,7 +15,9 @@ import time
 from PIL.ImageChops import offset
 
 def start_draw(event):
-    global last_x, last_y, current_stroke_ids
+    global last_x, last_y, current_stroke_ids, drawing_active
+    drawing_active = True
+    canvas.focus_set()
     last_x, last_y = event.x, event.y
     current_stroke_ids = []
     redo_stack.clear()
@@ -281,6 +283,7 @@ def save_file(active_canvas,scale_factor=4):
 
 def program_1():
     canvas.bind("Button-1",start_draw)
+    canvas.bind("<Button-1>", draw_with_brush, add="+")
     canvas.bind("<B1-Motion>", draw_with_brush)
     canvas.bind("ButtonRelease-1", stop_draw)
 def draw_with_brush(event):
@@ -293,9 +296,6 @@ def draw_with_brush(event):
     smooth_active = is_checked.get()
     outline_width = slider_border.get()
 
-
-    rotation = 90
-
     x_position_of_click = event.x
     y_position_of_click = event.y
 
@@ -303,7 +303,6 @@ def draw_with_brush(event):
     h = canvas.winfo_height()
 
     brush_size = slider_size.get()
-    size_poly = 100
     # define a circle with the mouse click at its center
     last_x = x_position_of_click - brush_size
     last_y = y_position_of_click - brush_size
@@ -314,56 +313,57 @@ def draw_with_brush(event):
 
     points = calculate_triangle_points(event.x, event.y, brush_size)
 
-
-    colour = new_colour
-    outline = outline_color
+    if not drawing_active:
+        return
+    color_fill = tkinter_colors[slider_color.get()]
+    color_outline = tkinter_colors[slider_outline.get()]
     # draw a circle while button_1 active and mouse is moving
     if tool == "Line":
         shape_id = canvas.create_line(last_x, last_y, x2, y2,
-                                      fill=tkinter_colors[slider_color.get()],
+                                      fill=color_fill,
                                       tags="paint",
                                       width=outline_width)
     elif tool == "Oval":
         if slider_border.get() <= 0:
             shape_id = canvas.create_oval(last_x, last_y, x2, y2,
-                                          fill=tkinter_colors[slider_color.get()],
+                                          fill=color_fill,
                                            tags="paint",
                                           width=0, outline="")
         else:
             shape_id = canvas.create_oval(last_x, last_y, x2, y2,
-                                          fill=tkinter_colors[slider_color.get()],
-                                          outline=tkinter_colors[slider_outline.get()], tags="paint",
+                                          fill=color_fill,
+                                          outline=color_outline, tags="paint",
                                           width=outline_width)
     elif tool == "Rectangle":
         if slider_border.get() <= 0:
             shape_id = canvas.create_rectangle(last_x, last_y, x2, y2,
-                                               fill=tkinter_colors[slider_color.get()],
+                                               fill=color_fill,
                                                outline="", tags="paint",
                                                width=0)
         else:
             shape_id = canvas.create_rectangle(last_x, last_y, x2, y2,
-                                               fill=tkinter_colors[slider_color.get()],
-                                               outline=tkinter_colors[slider_outline.get()], tags="paint",
+                                               fill=color_fill,
+                                               outline=color_outline, tags="paint",
                                                width=outline_width)
     elif tool == "Polygon":
         if slider_border.get() <= 0:
             shape_id = canvas.create_polygon(points,
-                                             fill=tkinter_colors[slider_color.get()],
+                                             fill=color_fill,
                                              outline="", tags="paint",
                                              splinesteps=spline_step, smooth=smooth_active,
                                              width=0)
         else:
             shape_id = canvas.create_polygon(points,
-                                             fill=tkinter_colors[slider_color.get()],
-                                             outline=tkinter_colors[slider_outline.get()], tags="paint",
+                                             fill=color_fill,
+                                             outline=color_outline, tags="paint",
                                              splinesteps=spline_step, smooth=smooth_active,
                                              width=outline_width)
 
 
     elif tool == "Arc":
         shape_id = canvas.create_arc(last_x, last_y, x2, y2,
-                                     fill=tkinter_colors[slider_color.get()],
-                                     outline=tkinter_colors[slider_outline.get()], tags="paint",
+                                     fill=color_fill,
+                                     outline=color_outline, tags="paint",
                                      width=outline_width)
 
     current_stroke_ids.append(shape_id)
@@ -452,9 +452,11 @@ def update_preview(event=None):
     )
 
 def program_2():
+    canvas.unbind("<Button-1>")
     canvas.bind("Button-1",start_draw)
     canvas.bind("<B1-Motion>", draw_with_exp)
     canvas.bind("ButtonRelease-1", stop_draw)
+
 def program_3():
     canvas.bind("Button-1",start_draw)
     canvas.bind("<B1-Motion>", draw_with_brush)
@@ -468,51 +470,91 @@ def program_5():
     canvas.bind("<B1-Motion>", draw_with_brush)
     canvas.bind("ButtonRelease-1", stop_draw)
 def draw_with_exp(event):
-    active_canvas = event.widget
 
+    # find the x and y positions where the user clicked the right mouse button
+    # The magic line: event.widget automatically adapts to main_canvas OR sub_canvas
     global last_x, last_y, current_stroke_ids
 
-    w = active_canvas.winfo_width()
-    h = active_canvas.winfo_height()
-
-    x_position_of_click = event.x
-    y_position_of_click = event.y
-
-    brush_size = slider_size.get()
-    # define a circle with the mouse click at its center
-    x1 = x_position_of_click - brush_size
-    y1 = y_position_of_click - brush_size
-    x2 = x1 + 100
-    y2 = y1 + 100
-    x3 = x1 - 100
-    y3 = y1 - 100
-
-
+    tool = my_combo.get()
     spline_step = slider_spline_step.get()
     smooth_active = is_checked.get()
+    outline_width = slider_border.get()
 
-    if my_combo.get() == "Line":
-        item_id = active_canvas.create_line(w/2, h/2, x2, y1, fill=tkinter_colors[slider_color.get()])
-    elif my_combo.get() == "Oval":
-        item_id = active_canvas.create_oval(x1, y1, w/2, h/2, fill=tkinter_colors[slider_color.get()],
-                                            outline=tkinter_colors[slider_outline.get()])
-    elif my_combo.get() == "Rectangle":
-        item_id = active_canvas.create_rectangle(w/4, h/4, x2, y1, fill=tkinter_colors[slider_color.get()],
-                                                 outline=tkinter_colors[slider_outline.get()])
-    elif my_combo.get() == "Polygon":
-        item_id = active_canvas.create_polygon(x1, y2, x2, y1,x3,y3, fill=tkinter_colors[slider_color.get()],
-                                               outline=tkinter_colors[slider_outline.get()],
-                                               splinesteps=spline_step, smooth=smooth_active)
-    elif my_combo.get() == "Arc":
-        item_id = active_canvas.create_arc(x2, y2, w/2, h/2, fill=tkinter_colors[slider_color.get()],
-                                           outline=tkinter_colors[slider_outline.get()])
-    else:
-        pass
+    rotation = 90
 
-    current_stroke_ids.append(item_id)
+    mouse_x = event.x
+    mouse_y = event.y
+
+    w = canvas.winfo_width()
+    h = canvas.winfo_height()
+
+    brush_size = slider_size.get()
+    size_poly = 100
+    # define a circle with the mouse click at its center
+    last_x = mouse_x - brush_size
+    last_y = mouse_y - brush_size
+    x2 = mouse_x + brush_size
+    y2 = mouse_y + brush_size
+    x3 = mouse_x / 2 - brush_size
+    y3 = mouse_y / 2 + brush_size
+
+    cx = canvas.winfo_width() / 2
+    cy = canvas.winfo_height() / 2
+    points = [cx,cy,mouse_x,mouse_y,x2,y2]
+    points_rect = [cx,cy,mouse_x,mouse_y]
+    colour = new_colour
+    outline = outline_color
+    # draw a circle while button_1 active and mouse is moving
+    if tool == "Line":
+        shape_id = canvas.create_line(cx, cy , x2, y2,
+                                      fill=tkinter_colors[slider_color.get()],
+                                      tags="paint",
+                                      width=outline_width)
+    elif tool == "Oval":
+        if slider_border.get() <= 0:
+            shape_id = canvas.create_oval(cx, cy, x2, y2,
+                                          fill=tkinter_colors[slider_color.get()],
+                                          tags="paint",
+                                          width=0, outline="")
+        else:
+            shape_id = canvas.create_oval(cx, cy, x2, y2,
+                                          fill=tkinter_colors[slider_color.get()],
+                                          outline=tkinter_colors[slider_outline.get()], tags="paint",
+                                          width=outline_width)
+    elif tool == "Rectangle":
+        if slider_border.get() <= 0:
+            shape_id = canvas.create_rectangle(points_rect,
+                                               fill=tkinter_colors[slider_color.get()],
+                                               outline="", tags="paint",
+                                               width=0)
+        else:
+            shape_id = canvas.create_rectangle(points_rect,
+                                               fill=tkinter_colors[slider_color.get()],
+                                               outline=tkinter_colors[slider_outline.get()], tags="paint",
+                                               width=outline_width)
+    elif tool == "Polygon":
+        if slider_border.get() <= 0:
+            shape_id = canvas.create_polygon(points,
+                                             fill=tkinter_colors[slider_color.get()],
+                                             outline="", tags="paint",
+                                             splinesteps=spline_step, smooth=smooth_active,
+                                             width=0)
+        else:
+            shape_id = canvas.create_polygon(points,
+                                             fill=tkinter_colors[slider_color.get()],
+                                             outline=tkinter_colors[slider_outline.get()], tags="paint",
+                                             splinesteps=spline_step, smooth=smooth_active,
+                                             width=outline_width)
+
+
+    elif tool == "Arc":
+        shape_id = canvas.create_arc(cx, cy, x2, y2,
+                                     fill=tkinter_colors[slider_color.get()],
+                                     outline=tkinter_colors[slider_outline.get()], tags="paint",
+                                     width=outline_width)
+
+    current_stroke_ids.append(shape_id)
     last_x, last_y = event.x, event.y
-
-
 
 def new_canvas():
         new_win = tk.Toplevel(window)
@@ -547,16 +589,14 @@ def to_tk_coords(x_custom, y_custom):
 
     return tk_x, tk_y
 
-def submit_size():
-    width_canvas = input_box_width.get()
-    height_canvas = input_box_height.get()
-    canvas.config(width=width_canvas, height=height_canvas)
+
 
 def canvas_size():
     def submit_size():
         width_canvas = input_box_width.get()
         height_canvas = input_box_height.get()
         canvas.config(width=width_canvas, height=height_canvas)
+        dialog.destroy()
     dialog = tk.Toplevel(control_frame)
     dialog.title("Canvas Size")
     dialog.resizable(False, False)
@@ -609,8 +649,9 @@ rotation_amount = 0
 # create window
 window = Tk()
 window.title("Project Pain")
+window.geometry("1420x1200")
 window.config(padx=25,pady=25,relief=SUNKEN,)
-window.resizable(False, False)
+window.grid_propagate(False)
 # menu
 menu_bar = Menu(window)
 file_bar = Menu(window)
@@ -633,7 +674,7 @@ file_bar.add_command(label="Canvas size", command=canvas_size)
 
 # create widgets
 width_canvas = 1000
-height_canvas = 1080
+height_canvas = 800
 
 width = width_canvas
 height = height_canvas
@@ -658,7 +699,7 @@ label1 = Label(control_frame, text="Size:", font=font_underline)
 slider_size = Scale(control_frame, from_=0, to=200, orient=HORIZONTAL,
            width=10, length=200,
            command=lambda val: [update_label_size(val),update_cursor(),update_preview()], font=font_all)
-slider_size.set(15)
+slider_size.set(40)
 label3 = Label(control_frame, text="Outline:", font=font_underline)
 slider_outline = Scale(control_frame, from_=0, to= len(tkinter_colors)-1, orient=HORIZONTAL,
            width=10, length=200,
@@ -697,7 +738,7 @@ label_spline_step = Label(control_frame, text="Polygons",font=font_underline, pa
 slider_border = tk.Scale(control_frame, from_=0, to=15,
                          orient=HORIZONTAL, width=10, length=200,
                          command=update_label_border,font=font_all)
-slider_border.set(5)
+slider_border.set(1)
 
 slider_poly = tk.Scale(control_frame, from_=0, to=200,
                        orient=HORIZONTAL, width=10, length=200,
@@ -751,7 +792,7 @@ button2 = Button(control_frame, text="Clear",command=clear_canvas,font=font_all)
 button2.grid(row=4, pady=10, column=1,sticky="e")
 
 #       save canvas button
-button3 = Button(window, text="Save",command=lambda: save_file(canvas),font=font_all, width=10)
+button3 = Button(window, text="Save",command=lambda: save_file(canvas),font=font_all, width=10,bg="black",fg="white")
 button3.grid(row=0, column=0,sticky="w")
 #       new canvas button
 button_plugin1 = Button(control_frame, text="New canvas", command=new_canvas,font=font_all)
@@ -824,6 +865,7 @@ my_combo.bind("<<ComboboxSelected>>", update_cursor)
 
 canvas.bind("<Button-1>", start_draw)     # Left click starts a stroke
 canvas.bind("<B1-Motion>", draw_with_brush)
+canvas.bind("<Button-1>", draw_with_brush, add="+")
 # Dragging draws the line
 canvas.bind("<ButtonRelease-1>", stop_draw) # Releasing mouse saves the stroke
 
@@ -831,6 +873,9 @@ canvas.bind("<ButtonRelease-1>", stop_draw) # Releasing mouse saves the stroke
 canvas.bind("<Motion>", update_cursor)
 canvas.bind("<Motion>", update_coordinates,add="+")
 canvas.bind("<Motion>",update_preview,add="+")
+
+
+
 
 
 # open window
